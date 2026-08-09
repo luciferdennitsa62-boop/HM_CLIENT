@@ -6,45 +6,38 @@ import com.client.impl.module.modules.render.Tracers;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
-public class ModuleManager {
+public final class ModuleManager {
+    private final List<Module> modules = new ArrayList<>();
 
-	private final List<Module> modules = new ArrayList<>();
+    public void registerModules() {
+        modules.clear();
+        modules.add(new Fullbright());
+        modules.add(new AutoSprint());
+        modules.add(new Tracers());
+    }
 
-	/**
-	 * Тут регистрируются все модули клиента. Добавляешь новый модуль —
-	 * создаёшь класс в impl/module/modules/<категория>/ и добавляешь строку сюда.
-	 */
-	public void registerModules() {
-		modules.add(new Fullbright());
-		modules.add(new AutoSprint());
-		modules.add(new Tracers());
-	}
+    public List<Module> getModules() {
+        return List.copyOf(modules);
+    }
 
-	public List<Module> getModules() {
-		return modules;
-	}
+    public List<Module> getModulesByCategory(Category category) {
+        return modules.stream().filter(module -> module.getCategory() == category).toList();
+    }
 
-	public List<Module> getModulesByCategory(Category category) {
-		return modules.stream()
-				.filter(m -> m.getCategory() == category)
-				.collect(Collectors.toList());
-	}
+    public Module getModuleByName(String name) {
+        return modules.stream()
+                .filter(module -> module.getName().equalsIgnoreCase(name))
+                .findFirst()
+                .orElse(null);
+    }
 
-	public Module getModuleByName(String name) {
-		for (Module module : modules) {
-			if (module.getName().equalsIgnoreCase(name)) return module;
-		}
-		return null;
-	}
-
-	/** Вызывать из клавиатурного события клиента, чтобы модули реагировали на свои keybind'ы. */
-	public void handleKeyPress(int keyCode) {
-		for (Module module : modules) {
-			if (module.getKeyBind() == keyCode && keyCode != -1) {
-				module.toggle();
-			}
-		}
-	}
+    public void handleKeyPress(int keyCode) {
+        if (keyCode < 0) return;
+        for (Module module : modules) {
+            if (module.getKeyBind() == keyCode) {
+                module.toggle();
+            }
+        }
+    }
 }
