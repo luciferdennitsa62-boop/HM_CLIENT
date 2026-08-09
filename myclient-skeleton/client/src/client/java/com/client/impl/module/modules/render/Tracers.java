@@ -20,58 +20,64 @@ import org.joml.Matrix4f;
  */
 public class Tracers extends Module {
 
-	private final Setting.DoubleSetting range;
-	private final Setting.BoolSetting playersOnly;
-	private final WorldRenderEvents.AfterEntities renderCallback = this::onWorldRender;
+    private final Setting.DoubleSetting range;
+    private final Setting.BoolSetting playersOnly;
 
-	public Tracers() {
-		super("Tracers", "Линии до ближайших сущностей", Category.RENDER);
-		this.range = addSetting(new Setting.DoubleSetting("Range", "Радиус отрисовки", 64.0, 8.0, 128.0, 1.0));
-		this.playersOnly = addSetting(new Setting.BoolSetting("PlayersOnly", "Только игроки", true));
-	}
+    public Tracers() {
+        super("Tracers", "Линии до ближайших сущностей", Category.RENDER);
+        this.range = addSetting(new Setting.DoubleSetting("Range", "Радиус отрисовки", 64.0, 8.0, 128.0, 1.0));
+        this.playersOnly = addSetting(new Setting.BoolSetting("PlayersOnly", "Только игроки", true));
 
-	@Override
-	protected void onEnable() {
-		WorldRenderEvents.AFTER_ENTITIES.register(renderCallback);
-	}
+        // Fabric events do not expose unregister(). Register once and use the
+        // module's enabled state to decide whether anything should be drawn.
+        WorldRenderEvents.AFTER_ENTITIES.register(this::onWorldRender);
+    }
 
-	@Override
-	protected void onDisable() {
-		WorldRenderEvents.AFTER_ENTITIES.unregister(renderCallback);
-	}
+    @Override
+    protected void onEnable() {
+        // Callback is registered once in the constructor.
+    }
 
-	private void onWorldRender(WorldRenderContext context) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null) return;
+    @Override
+    protected void onDisable() {
+        // No unregister API is available for Fabric's event instance.
+    }
 
-		PoseStack matrices = context.matrices();
-		MultiBufferSource consumers = context.consumers();
-		if (matrices == null || consumers == null) return;
+    private void onWorldRender(WorldRenderContext context) {
+        if (!isEnabled()) return;
 
-		Vec3 camera = context.camera().getPosition();
-		Matrix4f pose = matrices.last().pose();
-		VertexConsumer buffer = consumers.getBuffer(RenderTypes.LINES);
-		double maxDistanceSq = range.getValue() * range.getValue();
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return;
 
-		for (Entity entity : mc.level.entitiesForRendering()) {
-			if (entity == mc.player) continue;
-			if (playersOnly.getValue() && !(entity instanceof Player)) continue;
-			if (entity.distanceToSqr(mc.player) > maxDistanceSq) continue;
+        PoseStack matrices = context.matrices();
+        MultiBufferSource consumers = context.consumers();
+        if (matrices == null || consumers == null) return;
 
-			Vec3 entityPos = entity.getPosition(context.camera().getPartialTickTime())
-					.add(0.0, entity.getBbHeight() * 0.5, 0.0);
+        Vec3 camera = context.worldState().cameraRenderState().pos;
+        Matrix4f pose = matrices.last().pose();
+        VertexConsumer buffer = consumers.getBuffer(RenderTypes.LINES);
+        double maxDistanceSq = range.getValue() * range.getValue();
+        float partialTick = context.tickCounter().getGameTimeDeltaPartialTick(true);
 
-			float endX = (float) (entityPos.x - camera.x);
-			float endY = (float) (entityPos.y - camera.y);
-			float endZ = (float) (entityPos.z - camera.z);
-			float startY = mc.player.getEyeHeight();
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (entity == mc.player) continue;
+            if (playersOnly.getValue() && !(entity instanceof Player)) continue;
+            if (entity.distanceToSqr(mc.player) > maxDistanceSq) continue;
 
-			buffer.addVertex(pose, 0.0F, startY, 0.0F)
-					.setColor(157, 78, 255, 200)
-					.setNormal(0.0F, 1.0F, 0.0F);
-			buffer.addVertex(pose, endX, endY, endZ)
-					.setColor(157, 78, 255, 200)
-					.setNormal(0.0F, 1.0F, 0.0F);
-		}
-	}
+            Vec3 entityPos = entity.getPosition(partialTick)
+                    .add(0.0, entity.getBbHeight() * 0.5, 0.0);
+
+            float endX = (float) (entityPos.x - camera.x);
+            float endY = (float) (entityPos.y - camera.y);
+            float endZ = (float) (entityPos.z - camera.z);
+            float startY = mc.player.getEyeHeight();
+
+            buffer.addVertex(pose, 0.0F, startY, 0.0F)
+                    .setColor(157, 78, 255, 200)
+                    .setNormal(0.0F, 1.0F, 0.0F);
+            buffer.addVertex(pose, endX, endY, endZ)
+                    .setColor(157, 78, 255, 200)
+                    .setNormal(0.0F, 1.0F, 0.0F);
+        }
+    }
 }
