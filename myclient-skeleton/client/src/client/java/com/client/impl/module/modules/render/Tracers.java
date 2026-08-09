@@ -13,52 +13,49 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Matrix4f;
 
-/** Draws client-side tracer lines to nearby players. */
-public class Tracers extends Module {
+public final class Tracers extends Module {
     private final Setting.DoubleSetting range;
     private final Setting.BoolSetting playersOnly;
 
     public Tracers() {
         super("Tracers", "Линии до ближайших сущностей", Category.RENDER);
-        this.range = addSetting(new Setting.DoubleSetting("Range", "Радиус отрисовки", 64.0, 8.0, 128.0, 1.0));
-        this.playersOnly = addSetting(new Setting.BoolSetting("PlayersOnly", "Только игроки", true));
-        WorldRenderEvents.AFTER_ENTITIES.register(this::onWorldRender);
+        range = addSetting(new Setting.DoubleSetting("Range", "Радиус отрисовки", 64.0, 8.0, 128.0, 1.0));
+        playersOnly = addSetting(new Setting.BoolSetting("PlayersOnly", "Только игроки", true));
+        WorldRenderEvents.AFTER_ENTITIES.register(this::render);
     }
 
-    private void onWorldRender(WorldRenderContext context) {
+    private void render(WorldRenderContext context) {
         if (!isEnabled()) return;
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null) return;
+
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.level == null) return;
 
         PoseStack matrices = context.matrices();
         MultiBufferSource consumers = context.consumers();
         if (matrices == null || consumers == null) return;
 
-        Vec3 camera = mc.gameRenderer.getMainCamera().getPosition();
-        Matrix4f pose = matrices.last().pose();
-        VertexConsumer buffer = consumers.getBuffer(RenderTypes.LINES);
+        Vec3 camera = context.gameRenderer().getMainCamera().getPosition();
+        float partialTick = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
         double maxDistanceSq = range.getValue() * range.getValue();
-        float partialTick = mc.getTimer().getGameTimeDeltaPartialTick(true);
+        VertexConsumer buffer = consumers.getBuffer(RenderTypes.LINES);
 
-        for (Entity entity : mc.level.entitiesForRendering()) {
-            if (entity == mc.player) continue;
+        for (Entity entity : client.level.entitiesForRendering()) {
+            if (entity == client.player) continue;
             if (playersOnly.getValue() && !(entity instanceof Player)) continue;
-            if (entity.distanceToSqr(mc.player) > maxDistanceSq) continue;
+            if (entity.distanceToSqr(client.player) > maxDistanceSq) continue;
 
-            Vec3 entityPos = entity.getPosition(partialTick)
-                    .add(0.0, entity.getBbHeight() * 0.5, 0.0);
-            float endX = (float) (entityPos.x - camera.x);
-            float endY = (float) (entityPos.y - camera.y);
-            float endZ = (float) (entityPos.z - camera.z);
+            Vec3 target = entity.getPosition(partialTick)
+                    .add(0.0, entity.getBbHeight() * 0.5, 0.0)
+                    .subtract(camera);
 
-            buffer.addVertex(pose, 0.0F, mc.player.getEyeHeight(), 0.0F)
-                    .setColor(157, 78, 255, 200)
-                    .setNormal(0.0F, 1.0F, 0.0F);
-            buffer.addVertex(pose, endX, endY, endZ)
-                    .setColor(157, 78, 255, 200)
-                    .setNormal(0.0F, 1.0F, 0.0F);
+            float startY = client.player.getEyeHeight();
+            buffer.addVertex(matrices.last(), 0.0f, startY, 0.0f)
+                    .setColor(157, 78, 255, 220)
+                    .setNormal(matrices.last(), 0.0f, 1.0f, 0.0f);
+            buffer.addVertex(matrices.last(), (float) target.x, (float) target.y, (float) target.z)
+                    .setColor(157, 78, 255, 220)
+                    .setNormal(matrices.last(), 0.0f, 1.0f, 0.0f);
         }
     }
 }
