@@ -2,12 +2,12 @@ package com.client;
 
 import com.client.event.EventBus;
 import com.client.impl.module.ModuleManager;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.event.client.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -25,7 +25,7 @@ public class MyClient implements ClientModInitializer {
 	private EventBus eventBus;
 	private ModuleManager moduleManager;
 
-	private KeyBinding openGuiKeyBinding;
+	private KeyMapping openGuiKeyBinding;
 
 	@Override
 	public void onInitializeClient() {
@@ -36,17 +36,17 @@ public class MyClient implements ClientModInitializer {
 		this.moduleManager.registerModules();
 
 		// Биндинг клавиши открытия ClickGUI — по умолчанию Right Shift
-		this.openGuiKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+		this.openGuiKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
 				"key." + MOD_ID + ".open_gui",
-				InputUtil.Type.KEYSYM,
+				InputConstants.Type.KEYSYM,
 				GLFW.GLFW_KEY_RIGHT_SHIFT,
 				"category." + MOD_ID
 		));
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
-			while (openGuiKeyBinding.wasPressed()) {
-				if (MinecraftClient.getInstance().currentScreen == null) {
-					MinecraftClient.getInstance().setScreen(
+			while (openGuiKeyBinding.consumeClick()) {
+				if (Minecraft.getInstance().screen == null) {
+					Minecraft.getInstance().setScreen(
 							new com.client.impl.gui.screen.ClickGuiScreen()
 					);
 				}
