@@ -5,6 +5,7 @@ import com.client.impl.module.Category;
 import com.client.impl.module.Module;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -18,17 +19,14 @@ public class ClickGuiScreen extends Screen {
 	private static final int PANEL_HEADER_COLOR = 0xF01C1C22;
 	private static final int ACCENT_COLOR = 0xFF9D4EFF;
 	private static final int TEXT_COLOR = 0xFFDDDDDD;
-
 	private static final int PANEL_WIDTH = 120;
 	private static final int HEADER_HEIGHT = 18;
 	private static final int ROW_HEIGHT = 16;
 
 	private final Map<Category, Float> openProgress = new HashMap<>();
 	private final Map<Category, Boolean> openTarget = new HashMap<>();
-
 	private final List<ClickableRow> headerRows = new ArrayList<>();
 	private final List<ClickableRow> moduleRows = new ArrayList<>();
-
 	private long lastFrameTime = System.currentTimeMillis();
 
 	public ClickGuiScreen() {
@@ -47,7 +45,6 @@ public class ClickGuiScreen extends Screen {
 
 		headerRows.clear();
 		moduleRows.clear();
-
 		context.fill(0, 0, this.width, this.height, BACKGROUND_COLOR);
 
 		int panelX = 20;
@@ -55,9 +52,7 @@ public class ClickGuiScreen extends Screen {
 		int spacing = 10;
 
 		for (Category category : Category.values()) {
-			panelY = renderCategoryPanel(context, category, panelX, panelY, dt);
-			panelY += spacing;
-
+			panelY = renderCategoryPanel(context, category, panelX, panelY, dt) + spacing;
 			if (panelY > this.height - 40) {
 				panelY = 20;
 				panelX += PANEL_WIDTH + spacing;
@@ -69,7 +64,6 @@ public class ClickGuiScreen extends Screen {
 
 	private int renderCategoryPanel(GuiGraphics context, Category category, int x, int y, float dt) {
 		List<Module> modules = MyClient.getInstance().getModuleManager().getModulesByCategory(category);
-
 		float target = openTarget.get(category) ? 1f : 0f;
 		float progress = openProgress.get(category);
 		float speed = 10f;
@@ -79,55 +73,47 @@ public class ClickGuiScreen extends Screen {
 
 		context.fill(x, y, x + PANEL_WIDTH, y + HEADER_HEIGHT, PANEL_HEADER_COLOR);
 		context.drawString(this.font, Component.literal(category.name()), x + 4, y + 5, TEXT_COLOR, false);
-
 		headerRows.add(new ClickableRow(x, y, PANEL_WIDTH, HEADER_HEIGHT, category, null));
 
 		int currentY = y + HEADER_HEIGHT;
 		for (int i = 0; i < modules.size(); i++) {
 			Module module = modules.get(i);
 			module.updateAnimation(dt);
-
 			float rowAlphaProgress = Math.max(0f, Math.min(1f, progress * modules.size() - i));
 			if (rowAlphaProgress <= 0f) continue;
 
 			int rowY = currentY;
 			int rowAlpha = (int) (rowAlphaProgress * 255);
-
 			float enabledProgress = module.getToggleAnimationProgress();
 			int rowBg = blendColor(0x00000000, ACCENT_COLOR, enabledProgress * 0.5f);
 			context.fill(x, rowY, x + PANEL_WIDTH, rowY + ROW_HEIGHT, withAlpha(rowBg, rowAlpha));
-
 			context.drawString(this.font, Component.literal(module.getName()), x + 4, rowY + 4,
 					withAlpha(TEXT_COLOR, rowAlpha), false);
-
 			moduleRows.add(new ClickableRow(x, rowY, PANEL_WIDTH, ROW_HEIGHT, category, module));
-
 			currentY += ROW_HEIGHT;
 		}
-
 		return currentY;
 	}
 
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
+		if (event.button() != 0) return super.mouseClicked(event, doubled);
 
+		double mouseX = event.x();
+		double mouseY = event.y();
 		for (ClickableRow row : headerRows) {
 			if (row.contains(mouseX, mouseY)) {
-				boolean current = openTarget.get(row.category);
-				openTarget.put(row.category, !current);
+				openTarget.put(row.category, !openTarget.get(row.category));
 				return true;
 			}
 		}
-
 		for (ClickableRow row : moduleRows) {
 			if (row.contains(mouseX, mouseY)) {
 				row.module.toggle();
 				return true;
 			}
 		}
-
-		return super.mouseClicked(mouseX, mouseY, button);
+		return super.mouseClicked(event, doubled);
 	}
 
 	@Override
