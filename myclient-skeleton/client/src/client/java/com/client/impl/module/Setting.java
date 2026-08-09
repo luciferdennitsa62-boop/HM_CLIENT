@@ -1,86 +1,66 @@
 package com.client.impl.module;
 
-/**
- * Базовый класс настройки модуля. Конкретные типы (BoolSetting, DoubleSetting)
- * наследуются от него — так ClickGUI может рендерить их единообразно,
- * проверяя instanceof.
- */
 public abstract class Setting<T> {
-	private final String name;
-	private final String description;
-	protected T value;
+    private final String name;
+    private final String description;
+    protected T value;
 
-	public Setting(String name, String description, T defaultValue) {
-		this.name = name;
-		this.description = description;
-		this.value = defaultValue;
-	}
+    protected Setting(String name, String description, T defaultValue) {
+        this.name = name;
+        this.description = description;
+        this.value = defaultValue;
+    }
 
-	public String getName() {
-		return name;
-	}
+    public String getName() { return name; }
+    public String getDescription() { return description; }
+    public T getValue() { return value; }
+    public void setValue(T value) { this.value = value; }
 
-	public String getDescription() {
-		return description;
-	}
+    public static final class BoolSetting extends Setting<Boolean> {
+        public BoolSetting(String name, String description, boolean defaultValue) {
+            super(name, description, defaultValue);
+        }
 
-	public T getValue() {
-		return value;
-	}
+        public void toggle() {
+            value = !value;
+        }
+    }
 
-	public void setValue(T value) {
-		this.value = value;
-	}
+    public static final class DoubleSetting extends Setting<Double> {
+        private final double min;
+        private final double max;
+        private final double step;
 
-	public static class BoolSetting extends Setting<Boolean> {
-		public BoolSetting(String name, String description, boolean defaultValue) {
-			super(name, description, defaultValue);
-		}
+        public DoubleSetting(String name, String description, double defaultValue,
+                             double min, double max, double step) {
+            super(name, description, clamp(defaultValue, min, max));
+            this.min = min;
+            this.max = max;
+            this.step = step;
+        }
 
-		public void toggle() {
-			setValue(!getValue());
-		}
-	}
+        @Override
+        public void setValue(Double value) {
+            super.setValue(clamp(value, min, max));
+        }
 
-	public static class DoubleSetting extends Setting<Double> {
-		private final double min;
-		private final double max;
-		private final double step;
+        private static double clamp(double value, double min, double max) {
+            return Math.max(min, Math.min(max, value));
+        }
 
-		public DoubleSetting(String name, String description, double defaultValue, double min, double max, double step) {
-			super(name, description, defaultValue);
-			this.min = min;
-			this.max = max;
-			this.step = step;
-		}
+        public double getMin() { return min; }
+        public double getMax() { return max; }
+        public double getStep() { return step; }
+    }
 
-		public double getMin() {
-			return min;
-		}
+    public static final class EnumSetting<E extends Enum<E>> extends Setting<E> {
+        public EnumSetting(String name, String description, E defaultValue) {
+            super(name, description, defaultValue);
+        }
 
-		public double getMax() {
-			return max;
-		}
-
-		public double getStep() {
-			return step;
-		}
-
-		@Override
-		public void setValue(Double value) {
-			super.setValue(Math.max(min, Math.min(max, value)));
-		}
-	}
-
-	public static class EnumSetting<E extends Enum<E>> extends Setting<E> {
-		public EnumSetting(String name, String description, E defaultValue) {
-			super(name, description, defaultValue);
-		}
-
-		public void cycle() {
-			E[] values = getValue().getDeclaringClass().getEnumConstants();
-			int next = (getValue().ordinal() + 1) % values.length;
-			setValue(values[next]);
-		}
-	}
+        public void cycle() {
+            E[] values = value.getDeclaringClass().getEnumConstants();
+            value = values[(value.ordinal() + 1) % values.length];
+        }
+    }
 }
