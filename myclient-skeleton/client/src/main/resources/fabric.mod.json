@@ -1,29 +1,22 @@
 {
-	"schemaVersion": 1,
-	"id": "myclient",
-	"version": "${version}",
-	"name": "MyClient",
-	"description": "Custom Fabric client — modules, ClickGUI, HUD.",
-	"authors": [
-		"luciferdennitsa62-boop"
-	],
-	"contact": {
-		"homepage": "https://github.com/luciferdennitsa62-boop/HM_CLIENT"
-	},
-	"license": "GPL-3.0",
-	"environment": "client",
-	"entrypoints": {
-		"client": [
-			"com.client.MyClient"
-		]
-	},
-	"mixins": [
-		"myclient.mixins.json"
-	],
-	"depends": {
-		"fabricloader": ">=0.19.3",
-		"minecraft": "1.21.11",
-		"java": ">=21",
-		"fabric-api": "*"
-	}
+  "schemaVersion": 1,
+  "id": "myclient",
+  "version": "${version}",
+  "name": "HM Client",
+  "description": "A lightweight client-side Fabric mod for Minecraft 1.21.11.",
+  "authors": ["luciferdennitsa62-boop"],
+  "contact": {
+    "homepage": "https://github.com/luciferdennitsa62-boop/HM_CLIENT"
+  },
+  "license": "GPL-3.0",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.client.MyClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": ">=0.141.6+1.21.11"
+  }
 }
