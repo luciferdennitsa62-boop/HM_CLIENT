@@ -35,7 +35,7 @@ public final class Tracers extends Module {
         MultiBufferSource consumers = context.consumers();
         if (matrices == null || consumers == null) return;
 
-        Vec3 camera = context.gameRenderer().getMainCamera().getPosition();
+        Vec3 camera = context.gameRenderer().getMainCamera().getCameraPos();
         float partialTick = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
         double maxDistanceSq = range.getValue() * range.getValue();
         VertexConsumer buffer = consumers.getBuffer(RenderTypes.LINES);
