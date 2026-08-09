@@ -12,23 +12,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * ClickGUI. Стиль минималистичный тёмный с акцентным цветом — меняется
- * через константы ACCENT_COLOR / BACKGROUND_COLOR ниже.
- *
- * Анимации: у каждой панели категории — плавное раскрытие списка модулей
- * (openProgress 0..1), у каждого модуля — плавная заливка при включении
- * (см. Module#updateAnimation).
- *
- * Это упрощённая, но полностью рабочая база — расположение панелей
- * жёстко захардкожено по сетке, для реального продукта стоит добавить
- * drag&drop и сохранение позиций в конфиг.
- */
 public class ClickGuiScreen extends Screen {
 
 	private static final int BACKGROUND_COLOR = 0xE0141414;
 	private static final int PANEL_HEADER_COLOR = 0xF01C1C22;
-	private static final int ACCENT_COLOR = 0xFF9D4EFF; // неоново-фиолетовый, меняй тут
+	private static final int ACCENT_COLOR = 0xFF9D4EFF;
 	private static final int TEXT_COLOR = 0xFFDDDDDD;
 
 	private static final int PANEL_WIDTH = 120;
@@ -37,6 +25,10 @@ public class ClickGuiScreen extends Screen {
 
 	private final Map<Category, Float> openProgress = new HashMap<>();
 	private final Map<Category, Boolean> openTarget = new HashMap<>();
+
+	// Хитбоксы, пересчитываются каждый кадр в render()
+	private final List<ClickableRow> headerRows = new ArrayList<>();
+	private final List<ClickableRow> moduleRows = new ArrayList<>();
 
 	private long lastFrameTime = System.currentTimeMillis();
 
@@ -54,6 +46,9 @@ public class ClickGuiScreen extends Screen {
 		float dt = Math.min((now - lastFrameTime) / 1000f, 0.1f);
 		lastFrameTime = now;
 
+		headerRows.clear();
+		moduleRows.clear();
+
 		context.fill(0, 0, this.width, this.height, BACKGROUND_COLOR);
 
 		int panelX = 20;
@@ -61,10 +56,9 @@ public class ClickGuiScreen extends Screen {
 		int spacing = 10;
 
 		for (Category category : Category.values()) {
-			panelY = renderCategoryPanel(context, category, panelX, panelY, dt, mouseX, mouseY);
+			panelY = renderCategoryPanel(context, category, panelX, panelY, dt);
 			panelY += spacing;
 
-			// перенос колонки, если панели не влезают по высоте экрана
 			if (panelY > this.height - 40) {
 				panelY = 20;
 				panelX += PANEL_WIDTH + spacing;
@@ -74,10 +68,9 @@ public class ClickGuiScreen extends Screen {
 		super.render(context, mouseX, mouseY, delta);
 	}
 
-	private int renderCategoryPanel(DrawContext context, Category category, int x, int y, float dt, int mouseX, int mouseY) {
+	private int renderCategoryPanel(DrawContext context, Category category, int x, int y, float dt) {
 		List<Module> modules = MyClient.getInstance().getModuleManager().getModulesByCategory(category);
 
-		// анимация раскрытия списка модулей в категории
 		float target = openTarget.get(category) ? 1f : 0f;
 		float progress = openProgress.get(category);
 		float speed = 10f;
@@ -85,31 +78,32 @@ public class ClickGuiScreen extends Screen {
 		else if (progress > target) progress = Math.max(target, progress - speed * dt);
 		openProgress.put(category, progress);
 
-		// заголовок панели
 		context.fill(x, y, x + PANEL_WIDTH, y + HEADER_HEIGHT, PANEL_HEADER_COLOR);
 		context.drawText(this.textRenderer, Text.literal(category.name()), x + 4, y + 5, TEXT_COLOR, false);
 
-		int currentY = y + HEADER_HEIGHT;
-		int visibleRows = Math.round(modules.size() * progress);
+		// запоминаем хитбокс заголовка — клик по нему раскрывает/закрывает панель
+		headerRows.add(new ClickableRow(x, y, PANEL_WIDTH, HEADER_HEIGHT, category, null));
 
+		int currentY = y + HEADER_HEIGHT;
 		for (int i = 0; i < modules.size(); i++) {
 			Module module = modules.get(i);
 			module.updateAnimation(dt);
 
-			// плавно проявляем строки по мере раскрытия панели
 			float rowAlphaProgress = Math.max(0f, Math.min(1f, progress * modules.size() - i));
 			if (rowAlphaProgress <= 0f) continue;
 
 			int rowY = currentY;
 			int rowAlpha = (int) (rowAlphaProgress * 255);
 
-			// подложка модуля — плавно заливается акцентным цветом при включении
 			float enabledProgress = module.getToggleAnimationProgress();
 			int rowBg = blendColor(0x00000000, ACCENT_COLOR, enabledProgress * 0.5f);
 			context.fill(x, rowY, x + PANEL_WIDTH, rowY + ROW_HEIGHT, withAlpha(rowBg, rowAlpha));
 
 			context.drawText(this.textRenderer, Text.literal(module.getName()), x + 4, rowY + 4,
 					withAlpha(TEXT_COLOR, rowAlpha), false);
+
+			// запоминаем хитбокс строки модуля — клик по ней тогглит модуль
+			moduleRows.add(new ClickableRow(x, rowY, PANEL_WIDTH, ROW_HEIGHT, category, module));
 
 			currentY += ROW_HEIGHT;
 		}
@@ -119,10 +113,25 @@ public class ClickGuiScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		// Упрощённый обработчик: для реального проекта лучше хранить хитбоксы
-		// панелей/строк, вычисленные в render(), и проверять клики по ним тут.
-		// Оставлено как TODO — структура готова, начинка кликов дописывается
-		// вместе с системой хранения layout'а панелей (см. комментарий в классе).
+		if (button != 0) return super.mouseClicked(mouseX, mouseY, button); // только ЛКМ
+
+		// сначала проверяем клики по заголовкам категорий (раскрыть/закрыть панель)
+		for (ClickableRow row : headerRows) {
+			if (row.contains(mouseX, mouseY)) {
+				boolean current = openTarget.get(row.category);
+				openTarget.put(row.category, !current);
+				return true;
+			}
+		}
+
+		// затем клики по строкам модулей (тоггл модуля)
+		for (ClickableRow row : moduleRows) {
+			if (row.contains(mouseX, mouseY)) {
+				row.module.toggle();
+				return true;
+			}
+		}
+
 		return super.mouseClicked(mouseX, mouseY, button);
 	}
 
@@ -143,5 +152,25 @@ public class ClickGuiScreen extends Screen {
 
 	private static int withAlpha(int color, int alpha) {
 		return (alpha << 24) | (color & 0x00FFFFFF);
+	}
+
+	/** Простой хитбокс-хелпер: прямоугольник + ссылка на категорию/модуль, к которым он относится. */
+	private static class ClickableRow {
+		final int x, y, width, height;
+		final Category category;
+		final Module module; // null для заголовка категории
+
+		ClickableRow(int x, int y, int width, int height, Category category, Module module) {
+			this.x = x;
+			this.y = y;
+			this.width = width;
+			this.height = height;
+			this.category = category;
+			this.module = module;
+		}
+
+		boolean contains(double mouseX, double mouseY) {
+			return mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
+		}
 	}
 }
