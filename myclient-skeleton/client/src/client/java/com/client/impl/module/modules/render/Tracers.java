@@ -15,29 +15,19 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 /**
- * Tracers — рисует линии от игрока до других сущностей в радиусе видимости.
- * Чисто визуальная фича, без сети — клиент рендерит данные о сущностях,
- * которые сервер и так прислал в пределах трекинг-радиуса.
- *
- * ПРИМЕЧАНИЕ: buffer-билдер API (addVertex/setColor) в 1.21.x периодически
- * менялся между минорными версиями. Если при сборке под 1.21.11 вылезет
- * ошибка именно на вызовах buffer.addVertex(...).setColor(...) — проверь
- * актуальную сигнатуру VertexConsumer в декомпилированных сорцах
- * (Minecraft > Tasks > genSources в IDE) и поправь по месту, логика вокруг
- * этого (сбор сущностей, дистанция, настройки) менять не придётся.
+ * Tracers — клиентская визуализация линий до сущностей в заданном радиусе.
  */
 public class Tracers extends Module {
 
 	private final Setting.DoubleSetting range;
 	private final Setting.BoolSetting playersOnly;
+	private final WorldRenderEvents.End renderCallback = this::onWorldRender;
 
 	public Tracers() {
 		super("Tracers", "Линии до ближайших сущностей", Category.RENDER);
 		this.range = addSetting(new Setting.DoubleSetting("Range", "Радиус отрисовки", 64.0, 8.0, 128.0, 1.0));
 		this.playersOnly = addSetting(new Setting.BoolSetting("PlayersOnly", "Только игроки", true));
 	}
-
-	private final WorldRenderEvents.End renderCallback = this::onWorldRender;
 
 	@Override
 	protected void onEnable() {
@@ -54,14 +44,13 @@ public class Tracers extends Module {
 		if (mc.player == null || mc.level == null) return;
 
 		PoseStack matrices = context.matrixStack();
-		if (matrices == null) return;
+		if (matrices == null || context.camera() == null) return;
+
+		MultiBufferSource consumers = context.consumers();
+		if (!(consumers instanceof MultiBufferSource.BufferSource bufferSource)) return;
 
 		Vec3 camera = context.camera().getPosition();
-		MultiBufferSource.BufferSource consumers =
-				(MultiBufferSource.BufferSource) context.consumers();
-		if (consumers == null) return;
-
-		var buffer = consumers.getBuffer(RenderType.lines());
+		var buffer = bufferSource.getBuffer(RenderType.lines());
 		Matrix4f matrix = matrices.last().pose();
 
 		for (Entity entity : mc.level.entitiesForRendering()) {
@@ -70,15 +59,17 @@ public class Tracers extends Module {
 			if (entity.distanceToSqr(mc.player) > range.getValue() * range.getValue()) continue;
 
 			Vec3 entityPos = entity.getPosition(context.tickCounter().getGameTimeDeltaPartialTick(true))
-					.add(0, entity.getBbHeight() / 2f, 0);
+					.add(0.0, entity.getBbHeight() / 2.0, 0.0);
 
-			float startY = (float) mc.player.getEyeHeight(mc.player.getPose());
+			float startY = mc.player.getEyeHeight();
 			float endX = (float) (entityPos.x - camera.x);
 			float endY = (float) (entityPos.y - camera.y);
 			float endZ = (float) (entityPos.z - camera.z);
 
-			buffer.addVertex(matrix, 0, startY, 0).setColor(0, 255, 200, 180);
+			buffer.addVertex(matrix, 0.0F, startY, 0.0F).setColor(0, 255, 200, 180);
 			buffer.addVertex(matrix, endX, endY, endZ).setColor(0, 255, 200, 180);
 		}
+
+		bufferSource.endBatch(RenderType.lines());
 	}
 }
