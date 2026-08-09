@@ -1,19 +1,16 @@
 package com.client.impl.module;
 
 import com.client.MyClient;
-import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Базовый класс модуля. Каждая фича клиента (ESP, Fullbright, Sprint и т.д.)
  * наследуется от этого класса и переопределяет onEnable/onDisable/onTick/onRender
  * по необходимости.
- *
- * Пример модуля лежит в impl/module/modules/misc/Fullbright.java —
- * смотри его как референс структуры.
  */
 public abstract class Module {
 
@@ -25,8 +22,11 @@ public abstract class Module {
 	private boolean enabled = false;
 	private int keyBind = InputUtil.UNKNOWN_KEY.getCode();
 
-	// Анимация переключения для ClickGUI (0.0 = выкл, 1.0 = вкл, плавный переход)
 	private float toggleAnimationProgress = 0f;
+
+	// Храним ссылки на конкретные Consumer'ы, чтобы можно было отписаться той же ссылкой
+	private final Consumer<Void> tickListener = v -> onTick();
+	private final Consumer<Float> renderListener = this::onRender;
 
 	public Module(String name, String description, Category category) {
 		this.name = name;
@@ -48,14 +48,13 @@ public abstract class Module {
 		this.enabled = enabled;
 
 		if (enabled) {
-			MyClient.getInstance().getEventBus().subscribeTick(v -> onTick());
-			MyClient.getInstance().getEventBus().subscribeRender(this::onRender);
+			MyClient.getInstance().getEventBus().subscribeTick(tickListener);
+			MyClient.getInstance().getEventBus().subscribeRender(renderListener);
 			onEnable();
 		} else {
+			MyClient.getInstance().getEventBus().unsubscribeTick(tickListener);
+			MyClient.getInstance().getEventBus().unsubscribeRender(renderListener);
 			onDisable();
-			// Полная отписка по ссылке на конкретный метод через lambda невозможна напрямую —
-			// в реальном проекте лучше хранить ссылки на конкретные Consumer'ы как поля,
-			// см. TODO в ModuleManager.
 		}
 	}
 
@@ -67,10 +66,9 @@ public abstract class Module {
 		return toggleAnimationProgress;
 	}
 
-	/** Вызывается каждый кадр ClickGUI для плавной анимации переключателей. */
 	public void updateAnimation(float delta) {
 		float target = enabled ? 1f : 0f;
-		float speed = 12f; // скорость анимации, подбирается на глаз
+		float speed = 12f;
 		if (toggleAnimationProgress < target) {
 			toggleAnimationProgress = Math.min(target, toggleAnimationProgress + speed * delta);
 		} else if (toggleAnimationProgress > target) {
@@ -78,39 +76,15 @@ public abstract class Module {
 		}
 	}
 
-	/** Вызывается один раз при включении модуля. */
 	protected void onEnable() {}
-
-	/** Вызывается один раз при выключении модуля. */
 	protected void onDisable() {}
-
-	/** Вызывается каждый игровой тик, пока модуль включён. */
 	protected void onTick() {}
-
-	/** Вызывается каждый кадр рендера, пока модуль включён. tickDelta — интерполяция кадра. */
 	protected void onRender(float tickDelta) {}
 
-	public String getName() {
-		return name;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public Category getCategory() {
-		return category;
-	}
-
-	public List<Setting<?>> getSettings() {
-		return settings;
-	}
-
-	public int getKeyBind() {
-		return keyBind;
-	}
-
-	public void setKeyBind(int keyBind) {
-		this.keyBind = keyBind;
-	}
+	public String getName() { return name; }
+	public String getDescription() { return description; }
+	public Category getCategory() { return category; }
+	public List<Setting<?>> getSettings() { return settings; }
+	public int getKeyBind() { return keyBind; }
+	public void setKeyBind(int keyBind) { this.keyBind = keyBind; }
 }
