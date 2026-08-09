@@ -3,23 +3,28 @@ package com.client.impl.module.modules.render;
 import com.client.impl.module.Category;
 import com.client.impl.module.Module;
 import com.client.impl.module.Setting;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 /**
  * Tracers — рисует линии от игрока до других сущностей в радиусе видимости.
- * Это чисто визуальная фича: клиент только рендерит данные о сущностях,
- * которые сервер и так прислал в пределах трекинг-радиуса (обычная игровая
- * механика отправки entity-данных клиенту). Никакой сети, никакого обмана —
- * просто дополнительная отрисовка поверх того, что уже есть в памяти клиента.
+ * Чисто визуальная фича, без сети — клиент рендерит данные о сущностях,
+ * которые сервер и так прислал в пределах трекинг-радиуса.
+ *
+ * ПРИМЕЧАНИЕ: buffer-билдер API (addVertex/setColor) в 1.21.x периодически
+ * менялся между минорными версиями. Если при сборке под 1.21.11 вылезет
+ * ошибка именно на вызовах buffer.addVertex(...).setColor(...) — проверь
+ * актуальную сигнатуру VertexConsumer в декомпилированных сорцах
+ * (Minecraft > Tasks > genSources в IDE) и поправь по месту, логика вокруг
+ * этого (сбор сущностей, дистанция, настройки) менять не придётся.
  */
 public class Tracers extends Module {
 
@@ -45,38 +50,35 @@ public class Tracers extends Module {
 	}
 
 	private void onWorldRender(WorldRenderContext context) {
-		MinecraftClient mc = MinecraftClient.getInstance();
-		if (mc.player == null || mc.world == null) return;
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || mc.level == null) return;
 
-		MatrixStack matrices = context.matrixStack();
+		PoseStack matrices = context.matrixStack();
 		if (matrices == null) return;
 
-		Vec3d camera = context.camera().getPos();
-		VertexConsumerProvider.Immediate consumers =
-				(VertexConsumerProvider.Immediate) context.consumers();
+		Vec3 camera = context.camera().getPosition();
+		MultiBufferSource.BufferSource consumers =
+				(MultiBufferSource.BufferSource) context.consumers();
 		if (consumers == null) return;
 
-		var buffer = consumers.getBuffer(RenderLayer.getLines());
-		Matrix4f matrix = matrices.peek().getPositionMatrix();
+		var buffer = consumers.getBuffer(RenderType.lines());
+		Matrix4f matrix = matrices.last().pose();
 
-		for (Entity entity : mc.world.getEntities()) {
+		for (Entity entity : mc.level.entitiesForRendering()) {
 			if (entity == mc.player) continue;
-			if (playersOnly.getValue() && !(entity instanceof PlayerEntity)) continue;
-			if (entity.squaredDistanceTo(mc.player) > range.getValue() * range.getValue()) continue;
+			if (playersOnly.getValue() && !(entity instanceof Player)) continue;
+			if (entity.distanceToSqr(mc.player) > range.getValue() * range.getValue()) continue;
 
-			Vec3d entityPos = entity.getLerpedPos(context.tickCounter().getTickDelta(true))
-					.add(0, entity.getHeight() / 2f, 0);
+			Vec3 entityPos = entity.getPosition(context.tickCounter().getGameTimeDeltaPartialTick(true))
+					.add(0, entity.getBbHeight() / 2f, 0);
 
-			float x1 = (float) (camera.x - camera.x); // рисуем от позиции камеры
-			float startX = 0, startY = (float) (mc.player.getEyeHeight(mc.player.getPose())), startZ = 0;
+			float startY = (float) mc.player.getEyeHeight(mc.player.getPose());
 			float endX = (float) (entityPos.x - camera.x);
 			float endY = (float) (entityPos.y - camera.y);
 			float endZ = (float) (entityPos.z - camera.z);
 
-			buffer.vertex(matrix, startX, startY, startZ).color(0, 255, 200, 180).next();
-			buffer.vertex(matrix, endX, endY, endZ).color(0, 255, 200, 180).next();
+			buffer.addVertex(matrix, 0, startY, 0).setColor(0, 255, 200, 180);
+			buffer.addVertex(matrix, endX, endY, endZ).setColor(0, 255, 200, 180);
 		}
-
-		consumers.draw(RenderLayer.getLines());
 	}
 }
