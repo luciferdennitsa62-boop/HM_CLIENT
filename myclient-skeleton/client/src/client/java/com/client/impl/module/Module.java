@@ -1,17 +1,12 @@
 package com.client.impl.module;
 
 import com.client.MyClient;
-import net.minecraft.client.util.InputUtil;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/**
- * Базовый класс модуля. Каждая фича клиента (ESP, Fullbright, Sprint и т.д.)
- * наследуется от этого класса и переопределяет onEnable/onDisable/onTick/onRender
- * по необходимости.
- */
 public abstract class Module {
 
 	private final String name;
@@ -20,11 +15,10 @@ public abstract class Module {
 	private final List<Setting<?>> settings = new ArrayList<>();
 
 	private boolean enabled = false;
-	private int keyBind = InputUtil.UNKNOWN_KEY.getCode();
+	private int keyBind = InputConstants.UNKNOWN.getValue();
 
 	private float toggleAnimationProgress = 0f;
 
-	// Храним ссылки на конкретные Consumer'ы, чтобы можно было отписаться той же ссылкой
 	private final Consumer<Void> tickListener = v -> onTick();
 	private final Consumer<Float> renderListener = this::onRender;
 
