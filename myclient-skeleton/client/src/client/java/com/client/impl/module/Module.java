@@ -5,80 +5,66 @@ import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 public abstract class Module {
+    private final String name;
+    private final String description;
+    private final Category category;
+    private final List<Setting<?>> settings = new ArrayList<>();
+    private boolean enabled;
+    private int keyBind = InputConstants.UNKNOWN.getValue();
+    private float toggleAnimationProgress;
+    private final Runnable tickListener = this::onTick;
 
-	private final String name;
-	private final String description;
-	private final Category category;
-	private final List<Setting<?>> settings = new ArrayList<>();
+    protected Module(String name, String description, Category category) {
+        this.name = name;
+        this.description = description;
+        this.category = category;
+    }
 
-	private boolean enabled = false;
-	private int keyBind = InputConstants.UNKNOWN.getValue();
+    protected <T extends Setting<?>> T addSetting(T setting) {
+        settings.add(setting);
+        return setting;
+    }
 
-	private float toggleAnimationProgress = 0f;
+    public final void toggle() {
+        setEnabled(!enabled);
+    }
 
-	private final Consumer<Void> tickListener = v -> onTick();
-	private final Consumer<Float> renderListener = this::onRender;
+    public final void setEnabled(boolean enabled) {
+        if (this.enabled == enabled) return;
+        this.enabled = enabled;
+        if (enabled) {
+            MyClient.getInstance().getEventBus().subscribeTick(tickListener);
+            onEnable();
+        } else {
+            MyClient.getInstance().getEventBus().unsubscribeTick(tickListener);
+            onDisable();
+        }
+    }
 
-	public Module(String name, String description, Category category) {
-		this.name = name;
-		this.description = description;
-		this.category = category;
-	}
+    public final boolean isEnabled() {
+        return enabled;
+    }
 
-	protected <T extends Setting<?>> T addSetting(T setting) {
-		settings.add(setting);
-		return setting;
-	}
+    public final void updateAnimation(float deltaSeconds) {
+        float target = enabled ? 1.0f : 0.0f;
+        float step = Math.min(1.0f, deltaSeconds * 12.0f);
+        toggleAnimationProgress += (target - toggleAnimationProgress) * step;
+    }
 
-	public void toggle() {
-		setEnabled(!enabled);
-	}
+    public final float getToggleAnimationProgress() {
+        return toggleAnimationProgress;
+    }
 
-	public void setEnabled(boolean enabled) {
-		if (this.enabled == enabled) return;
-		this.enabled = enabled;
+    protected void onEnable() {}
+    protected void onDisable() {}
+    protected void onTick() {}
 
-		if (enabled) {
-			MyClient.getInstance().getEventBus().subscribeTick(tickListener);
-			MyClient.getInstance().getEventBus().subscribeRender(renderListener);
-			onEnable();
-		} else {
-			MyClient.getInstance().getEventBus().unsubscribeTick(tickListener);
-			MyClient.getInstance().getEventBus().unsubscribeRender(renderListener);
-			onDisable();
-		}
-	}
-
-	public boolean isEnabled() {
-		return enabled;
-	}
-
-	public float getToggleAnimationProgress() {
-		return toggleAnimationProgress;
-	}
-
-	public void updateAnimation(float delta) {
-		float target = enabled ? 1f : 0f;
-		float speed = 12f;
-		if (toggleAnimationProgress < target) {
-			toggleAnimationProgress = Math.min(target, toggleAnimationProgress + speed * delta);
-		} else if (toggleAnimationProgress > target) {
-			toggleAnimationProgress = Math.max(target, toggleAnimationProgress - speed * delta);
-		}
-	}
-
-	protected void onEnable() {}
-	protected void onDisable() {}
-	protected void onTick() {}
-	protected void onRender(float tickDelta) {}
-
-	public String getName() { return name; }
-	public String getDescription() { return description; }
-	public Category getCategory() { return category; }
-	public List<Setting<?>> getSettings() { return settings; }
-	public int getKeyBind() { return keyBind; }
-	public void setKeyBind(int keyBind) { this.keyBind = keyBind; }
+    public String getName() { return name; }
+    public String getDescription() { return description; }
+    public Category getCategory() { return category; }
+    public List<Setting<?>> getSettings() { return settings; }
+    public int getKeyBind() { return keyBind; }
+    public void setKeyBind(int keyBind) { this.keyBind = keyBind; }
 }
