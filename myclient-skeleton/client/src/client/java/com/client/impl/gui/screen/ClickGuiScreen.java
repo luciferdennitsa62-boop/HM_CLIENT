@@ -3,9 +3,9 @@ package com.client.impl.gui.screen;
 import com.client.MyClient;
 import com.client.impl.module.Category;
 import com.client.impl.module.Module;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,14 +26,13 @@ public class ClickGuiScreen extends Screen {
 	private final Map<Category, Float> openProgress = new HashMap<>();
 	private final Map<Category, Boolean> openTarget = new HashMap<>();
 
-	// Хитбоксы, пересчитываются каждый кадр в render()
 	private final List<ClickableRow> headerRows = new ArrayList<>();
 	private final List<ClickableRow> moduleRows = new ArrayList<>();
 
 	private long lastFrameTime = System.currentTimeMillis();
 
 	public ClickGuiScreen() {
-		super(Text.literal(MyClient.CLIENT_NAME));
+		super(Component.literal(MyClient.CLIENT_NAME));
 		for (Category category : Category.values()) {
 			openProgress.put(category, 0f);
 			openTarget.put(category, false);
@@ -41,7 +40,7 @@ public class ClickGuiScreen extends Screen {
 	}
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
 		long now = System.currentTimeMillis();
 		float dt = Math.min((now - lastFrameTime) / 1000f, 0.1f);
 		lastFrameTime = now;
@@ -68,7 +67,7 @@ public class ClickGuiScreen extends Screen {
 		super.render(context, mouseX, mouseY, delta);
 	}
 
-	private int renderCategoryPanel(DrawContext context, Category category, int x, int y, float dt) {
+	private int renderCategoryPanel(GuiGraphics context, Category category, int x, int y, float dt) {
 		List<Module> modules = MyClient.getInstance().getModuleManager().getModulesByCategory(category);
 
 		float target = openTarget.get(category) ? 1f : 0f;
@@ -79,9 +78,8 @@ public class ClickGuiScreen extends Screen {
 		openProgress.put(category, progress);
 
 		context.fill(x, y, x + PANEL_WIDTH, y + HEADER_HEIGHT, PANEL_HEADER_COLOR);
-		context.drawText(this.textRenderer, Text.literal(category.name()), x + 4, y + 5, TEXT_COLOR, false);
+		context.drawString(this.font, Component.literal(category.name()), x + 4, y + 5, TEXT_COLOR, false);
 
-		// запоминаем хитбокс заголовка — клик по нему раскрывает/закрывает панель
 		headerRows.add(new ClickableRow(x, y, PANEL_WIDTH, HEADER_HEIGHT, category, null));
 
 		int currentY = y + HEADER_HEIGHT;
@@ -99,10 +97,9 @@ public class ClickGuiScreen extends Screen {
 			int rowBg = blendColor(0x00000000, ACCENT_COLOR, enabledProgress * 0.5f);
 			context.fill(x, rowY, x + PANEL_WIDTH, rowY + ROW_HEIGHT, withAlpha(rowBg, rowAlpha));
 
-			context.drawText(this.textRenderer, Text.literal(module.getName()), x + 4, rowY + 4,
+			context.drawString(this.font, Component.literal(module.getName()), x + 4, rowY + 4,
 					withAlpha(TEXT_COLOR, rowAlpha), false);
 
-			// запоминаем хитбокс строки модуля — клик по ней тогглит модуль
 			moduleRows.add(new ClickableRow(x, rowY, PANEL_WIDTH, ROW_HEIGHT, category, module));
 
 			currentY += ROW_HEIGHT;
@@ -113,9 +110,8 @@ public class ClickGuiScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		if (button != 0) return super.mouseClicked(mouseX, mouseY, button); // только ЛКМ
+		if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
 
-		// сначала проверяем клики по заголовкам категорий (раскрыть/закрыть панель)
 		for (ClickableRow row : headerRows) {
 			if (row.contains(mouseX, mouseY)) {
 				boolean current = openTarget.get(row.category);
@@ -124,7 +120,6 @@ public class ClickGuiScreen extends Screen {
 			}
 		}
 
-		// затем клики по строкам модулей (тоггл модуля)
 		for (ClickableRow row : moduleRows) {
 			if (row.contains(mouseX, mouseY)) {
 				row.module.toggle();
@@ -136,7 +131,7 @@ public class ClickGuiScreen extends Screen {
 	}
 
 	@Override
-	public boolean shouldPause() {
+	public boolean isPauseScreen() {
 		return false;
 	}
 
@@ -154,11 +149,10 @@ public class ClickGuiScreen extends Screen {
 		return (alpha << 24) | (color & 0x00FFFFFF);
 	}
 
-	/** Простой хитбокс-хелпер: прямоугольник + ссылка на категорию/модуль, к которым он относится. */
 	private static class ClickableRow {
 		final int x, y, width, height;
 		final Category category;
-		final Module module; // null для заголовка категории
+		final Module module;
 
 		ClickableRow(int x, int y, int width, int height, Category category, Module module) {
 			this.x = x;
