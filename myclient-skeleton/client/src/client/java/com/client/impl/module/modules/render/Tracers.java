@@ -35,8 +35,9 @@ public final class Tracers extends Module {
         MultiBufferSource consumers = context.consumers();
         if (matrices == null || consumers == null) return;
 
-        // In 1.21.11 Camera exposes getCameraPos() in the official mappings.
-        Vec3 camera = context.gameRenderer().getMainCamera().getCameraPos();
+        // The project uses official Mojang mappings for Minecraft 1.21.11.
+        // In those mappings Camera's public position accessor is position().
+        Vec3 camera = context.gameRenderer().getMainCamera().position();
         float partialTick = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
         double maxDistanceSq = range.getValue() * range.getValue();
         VertexConsumer buffer = consumers.getBuffer(RenderTypes.LINES);
