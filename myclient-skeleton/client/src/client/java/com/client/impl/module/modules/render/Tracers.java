@@ -35,6 +35,7 @@ public final class Tracers extends Module {
         MultiBufferSource consumers = context.consumers();
         if (matrices == null || consumers == null) return;
 
+        // In 1.21.11 Camera exposes getCameraPos() in the official mappings.
         Vec3 camera = context.gameRenderer().getMainCamera().getCameraPos();
         float partialTick = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
         double maxDistanceSq = range.getValue() * range.getValue();
