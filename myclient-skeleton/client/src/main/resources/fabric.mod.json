@@ -5,13 +5,12 @@
 	"name": "MyClient",
 	"description": "Custom Fabric client — modules, ClickGUI, HUD.",
 	"authors": [
-		"you"
+		"luciferdennitsa62-boop"
 	],
 	"contact": {
-		"homepage": "https://github.com/yourname/myclient"
+		"homepage": "https://github.com/luciferdennitsa62-boop/HM_CLIENT"
 	},
 	"license": "GPL-3.0",
-	"icon": "assets/myclient/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"client": [
@@ -22,8 +21,8 @@
 		"myclient.mixins.json"
 	],
 	"depends": {
-		"fabricloader": ">=0.16.9",
-		"minecraft": "~1.21.1",
+		"fabricloader": ">=0.19.3",
+		"minecraft": "1.21.11",
 		"java": ">=21",
 		"fabric-api": "*"
 	}
