@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "myclient",
+	"version": "${version}",
+	"name": "MyClient",
+	"description": "Custom Fabric client — modules, ClickGUI, HUD.",
+	"authors": [
+		"you"
+	],
+	"contact": {
+		"homepage": "https://github.com/yourname/myclient"
+	},
+	"license": "GPL-3.0",
+	"icon": "assets/myclient/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.client.MyClient"
+		]
+	},
+	"mixins": [
+		"myclient.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.16.9",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
